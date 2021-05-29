@@ -1,0 +1,1 @@
+ ./bin/cache_sim ./resources/nconfig ./resources/openssltracefile_1_core1
