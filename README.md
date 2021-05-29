@@ -1,5 +1,21 @@
 # Cache-Emulator
 
+### Introduction
+
+In this final project you will implement a cache simulator. Your simulator will be configurable and will be able to handle caches with varying capacities, block sizes, levels of associativity, replacement policies, and write policies. The simulator will operate on trace files that indicate memory access properties. All input files to your simulator will follow a specific structure so that you can parse the contents and use the information to set the properties of your simulator.
+
+After execution is finished, your simulator will generate an output file containing information on the number of cache misses, hits, and miss evictions (i.e. the number of block replacements). In addition, the file will also record the total number of (simulated) clock cycles used during the situation. Lastly, the file will indicate how many read and write operations were requested by the CPU.
+
+It is important to note that your simulator is required to make several significant assumptions for the sake of simplicity.
+
+    You do not have to simulate the actual data contents. We simply pretend that we copied data from main memory and keep track of the hypothetical time that would have elapsed.
+    Accessing a sub-portion of a cache block takes the exact same time as it would require to access the entire block. Imagine that you are working with a cache that uses a 32 byte block size and has an access time of 15 clock cycles. Reading a 32 byte block from this cache will require 15 clock cycles. However, the same amount of time is required to read 1 byte from the cache.
+    In this project assume that main memory RAM is always accessed in units of 8 bytes (i.e. 64 bits at a time).
+    When accessing main memory, it's expensive to access the first unit. However, DDR memory typically includes a prefetch buffer which means that the RAM can provide access to the successive memory (in 8 byte chunks) with minimal overhead. In this project we assume an overhead of 1 additional clock cycle per contiguous unit.
+    For example, suppose that it costs 255 clock cycles to access the first unit from main memory. Based on our assumption, it would only cost 257 clock cycles to access 24 bytes of memory.
+    Assume that all caches utilize a "fetch-on-write" scheme if a miss occurs on a Store operation. This means that you must always fetch a block (i.e. load it) before you can store to that location (if that block is not already in the cache).
+
+
 ### Cache Simulator Control Flow
 
 The cache simulator program takes two arguments, a cache configuration file and an input file. The cache simulator then outputs an output file that holds the global number of cycles, hits, misses, evictions, and a detailed description of every cache change. 
