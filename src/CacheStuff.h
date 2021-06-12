@@ -34,6 +34,8 @@ struct CacheInfo {
 struct CacheResponse {
 	int hits; // how many caches did this memory operation hit?
 	int misses; // how many caches did this memory operation miss?
+	int contiguousAccess; // how many memory units were contiguous?
+	int hitAccess; // how many memory units were contiguous?
 	int evictions; // did this memory operation involve one or more evictions?
 	int dirtyEvictions; // were any evicted blocks marked as dirty? (relevant for write-back cache)
 	unsigned int cycles; // how many clock cycles did this operation take?

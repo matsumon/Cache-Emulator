@@ -14,6 +14,9 @@
 
 
 using namespace std;
+unsigned long long int lastAddress = -1000;
+int read = 0;
+int write = 0;
 int randomNumber(int associativity){
 	return rand()%associativity;
 }
@@ -56,8 +59,8 @@ CacheController::CacheController(CacheInfo ci, string tracefile) {
 void CacheController::runTracefile() {
 	srand(time(NULL)); //need to seed in order for random numbers
 
-	cout << "Input tracefile: " << inputFile << endl;
-	cout << "Output file name: " << outputFile << endl;
+	// cout << "Input tracefile: " << inputFile << endl;
+	// cout << "Output file name: " << outputFile << endl;
 	
 	// process each input line
 	string line;
@@ -86,7 +89,8 @@ void CacheController::runTracefile() {
 			// skip over comments and CPU instructions
 			continue;
 		} else if (std::regex_match(line, match, loadPattern)) {
-			cout << "Found a load op!" << endl;
+			// cout << "Found a load op!" << endl;
+			read++;
 			istringstream hexStream(match.str(2));
 			hexStream >> std::hex >> address;
 			outfile << match.str(1) << match.str(2) << match.str(3) << match.str(4);
@@ -94,14 +98,17 @@ void CacheController::runTracefile() {
 			logEntry(outfile, &response);
 			
 		} else if (std::regex_match(line, match, storePattern)) {
-			cout << "Found a store op!" << endl;
+			// cout << "Found a store op!" << endl;
+			write++;
 			istringstream hexStream(match.str(2));
 			hexStream >> std::hex >> address;
 			outfile << match.str(1) << match.str(2) << match.str(3) << match.str(4);
 			cacheAccess(&response, true, address, stoi(match.str(4)));
 			logEntry(outfile, &response);
 		} else if (std::regex_match(line, match, modifyPattern)) {
-			cout << "Found a modify op!" << endl;
+			// cout << "Found a modify op!" << endl;
+			read++;
+			write++;
 			istringstream hexStream(match.str(2));
 			// first process the read operation
 			hexStream >> std::hex >> address;
@@ -120,8 +127,8 @@ void CacheController::runTracefile() {
 		outfile << endl;
 	}
 	// add the final cache statistics
-	outfile << "Hits: " << globalHits << " Misses: " << globalMisses << " Evictions: " << globalEvictions << endl;
-	outfile << "Cycles: " << globalCycles << endl;
+	outfile << "L1 Cache: Hits:" << globalHits << " Misses:" << globalMisses << " Evictions:" << globalEvictions << endl;
+	outfile << "Cycles:" << globalCycles <<" Reads:"<<read<<" Writes:"<<write<< endl;
 
 	infile.close();
 	outfile.close();
@@ -169,20 +176,32 @@ void CacheController::cacheAccess(CacheResponse* response, bool isWrite, unsigne
 		response->hits = 0;
 		response->misses = 0;
 		response->evictions = 0;
+		response->contiguousAccess = 0;
+		response->hitAccess = 0;
 		int iterations = 0; //This is used to calculate the number of times that the user needs to check the cache
 		CacheResponse localResponse;
+		CacheResponse sequentialResponse;
+		sequentialResponse.cycles = 0;
+		sequentialResponse.hits = 0;
+		sequentialResponse.misses = 0;
+		sequentialResponse.evictions = 0;
+		sequentialResponse.contiguousAccess = 0;
+		sequentialResponse.hitAccess = 0;
 	for(int i = 0; i<numBytes; i+= pow(2,this->ci.numByteOffsetBits)){
 		localResponse.cycles = 0;
 		localResponse.hits = 0;
 		localResponse.misses = 0;
 		localResponse.evictions = 0;
+		localResponse.contiguousAccess = 0;
+		localResponse.hitAccess = 0;
 		AddressInfo ai = getAddressInfo(address + iterations * pow(2,this->ci.numByteOffsetBits));
+		unsigned long int thisAddress = address + iterations * pow(2,this->ci.numByteOffsetBits) - ai.byteNumber;
 		iterations++;
 		//Modifies the for loop iterator to correctly advance through the cache
 		if(i==0){
 			i -= ai.byteNumber;
 		}
-		cout << "\tSet index: " << ai.setIndex << ", tag: " << ai.tag << endl;
+		// cout << "\tSet index: " << ai.setIndex << ", tag: " << ai.tag << endl;
 		AddressInfo * tempCache = new AddressInfo[this->ci.associativity];
 		//Copying the main cache to a temp cache for ease of modification
 		for(int a = 0; a < this->ci.associativity; a++){
@@ -196,6 +215,20 @@ void CacheController::cacheAccess(CacheResponse* response, bool isWrite, unsigne
 				foundIndex = 1;
 				entryIndex = b;
 				localResponse.hits++;
+				if(isWrite == true){
+					if(lastAddress ==thisAddress){
+						localResponse.hitAccess++;
+					}
+					int temp = thisAddress % this->ci.blockSize;
+					if(numBytes < this->ci.blockSize){
+						
+					}
+					int addTemp = this->ci.blockSize - temp;
+					if(addTemp == this->ci.blockSize){
+						addTemp = 0;
+					}
+					lastAddress = thisAddress+addTemp+ pow(2,this->ci.numByteOffsetBits);
+				}
 			}
 			if (tempCache[b].valid == 0 && foundIndex == 0 ){
 				foundIndex = 2;
@@ -204,9 +237,27 @@ void CacheController::cacheAccess(CacheResponse* response, bool isWrite, unsigne
 		}
 		if(foundIndex == 2){
 			localResponse.misses++;
+			if(lastAddress == thisAddress){
+				localResponse.contiguousAccess++;
+			}
+			int temp = thisAddress % this->ci.blockSize;
+			int addTemp = this->ci.blockSize - temp;
+			if(addTemp == this->ci.blockSize){
+				addTemp = 0;
+			}
+			lastAddress = thisAddress+addTemp+ pow(2,this->ci.numByteOffsetBits);
 		}else if(foundIndex == 0){
 			localResponse.misses++;
 			localResponse.evictions++;
+			if(lastAddress == thisAddress){
+				localResponse.contiguousAccess++;
+			}
+			int temp = thisAddress % this->ci.blockSize;
+			int addTemp = this->ci.blockSize - temp;
+			if(addTemp == this->ci.blockSize){
+				addTemp = 0;
+			}
+				lastAddress = thisAddress+addTemp+ pow(2,this->ci.numByteOffsetBits);
 		}
 		//Editing the cache according to results of above lines and replacement policy
 		if((foundIndex == 1 || foundIndex == 2) && entryIndex != -1){
@@ -248,36 +299,73 @@ void CacheController::cacheAccess(CacheResponse* response, bool isWrite, unsigne
 		//Determing how many extra bytes for a RAM access
 		int extraMemoryBlocks = (ceil((float)( (float)this->ci.blockSize) / 8.) - 1) ;
 		extraMemoryBlocks = (extraMemoryBlocks > 0) ? extraMemoryBlocks : 0;
-		if(isWrite == false){
+		if(isWrite == false && localResponse.contiguousAccess < 1){
 			localResponse.cycles += 
 				localResponse.hits * this->ci.cacheAccessCycles  +
 				localResponse.misses * this->ci.cacheAccessCycles + 
 				localResponse.misses * (this->ci.memoryAccessCycles + extraMemoryBlocks);
 		}
-		if(isWrite == true){
+		if(isWrite == true && localResponse.contiguousAccess < 1 && localResponse.hitAccess < 1){
 			localResponse.cycles += 
 				localResponse.hits * this->ci.cacheAccessCycles  +
 				localResponse.hits * (this->ci.memoryAccessCycles + extraMemoryBlocks) +
 				2 * (localResponse.misses * this->ci.cacheAccessCycles + 
 				localResponse.misses * (this->ci.memoryAccessCycles + extraMemoryBlocks));
 		}
-		//Updating global counters
-		this->globalCycles += localResponse.cycles;
-		this->globalHits += localResponse.hits;
-		this->globalMisses += localResponse.misses;
-		this->globalEvictions += localResponse.evictions;
-		response->cycles += localResponse.cycles;
-		response->hits += localResponse.hits;
-		response->misses += localResponse.misses;
-		response->evictions += localResponse.evictions;
-		
+		if(localResponse.contiguousAccess < 1 && localResponse.hitAccess < 1 ){
+			//Updating global counters
+			this->globalCycles += localResponse.cycles;
+			this->globalHits += localResponse.hits;
+			this->globalMisses += localResponse.misses;
+			this->globalEvictions += localResponse.evictions;
+			response->cycles += localResponse.cycles;
+			response->hits += localResponse.hits;
+			response->misses += localResponse.misses;
+			response->evictions += localResponse.evictions;
+		}
+		if(localResponse.contiguousAccess > 0 || localResponse.hitAccess > 0){
+			//Updating global counters
+			sequentialResponse.cycles += localResponse.cycles;
+			sequentialResponse.hits += localResponse.hits;
+			sequentialResponse.misses += localResponse.misses;
+			sequentialResponse.evictions += localResponse.evictions;
+			sequentialResponse.contiguousAccess += localResponse.contiguousAccess;
+			sequentialResponse.hitAccess += localResponse.hitAccess;
+		}
+	}
+	if(sequentialResponse.contiguousAccess > 0 || sequentialResponse.hitAccess > 0){
+		int extraMemoryBlocks = (ceil((float)( (float)this->ci.blockSize) / 8.) - 1);
+		extraMemoryBlocks = (extraMemoryBlocks > 0) ? extraMemoryBlocks : 0;
+		if(isWrite == true){
+			sequentialResponse.cycles = 
+				sequentialResponse.hitAccess * (this->ci.cacheAccessCycles  + extraMemoryBlocks + 1)
+				+ sequentialResponse.contiguousAccess * (this->ci.cacheAccessCycles * 2 + extraMemoryBlocks*2 + 1 + this->ci.memoryAccessCycles)
+				+ (sequentialResponse.hits - sequentialResponse.hitAccess) * this->ci.cacheAccessCycles  +
+				(sequentialResponse.hits - sequentialResponse.hitAccess) * (this->ci.memoryAccessCycles + extraMemoryBlocks) +
+				2 * ((sequentialResponse.misses-sequentialResponse.contiguousAccess) * this->ci.cacheAccessCycles + 
+				(sequentialResponse.misses-sequentialResponse.contiguousAccess) * (this->ci.memoryAccessCycles + extraMemoryBlocks));
+		}
+		if(isWrite == false){
+			sequentialResponse.cycles = 
+				(sequentialResponse.contiguousAccess) 
+				* (this->ci.cacheAccessCycles + extraMemoryBlocks + 1)
+				+ sequentialResponse.hits * this->ci.cacheAccessCycles;
+		}
+			response->cycles += sequentialResponse.cycles;
+			response->hits += sequentialResponse.hits;
+			response->misses += sequentialResponse.misses;
+			response->evictions += sequentialResponse.evictions;
+			this->globalCycles += sequentialResponse.cycles;
+			this->globalHits += sequentialResponse.hits;
+			this->globalMisses += sequentialResponse.misses;
+			this->globalEvictions += sequentialResponse.evictions;
 	}
 		// your code needs to update the global counters that track the number of hits, misses, and evictions
 	if (response->hits > 0)
-		cout << "Operation at address " << std::hex << address << " caused " << response->hits << " hit(s)." << std::dec << endl;
+		// cout << "Operation at address " << std::hex << address << " caused " << response->hits << " hit(s)." << std::dec << endl;
 	if (response->misses > 0)
-		cout << "Operation at address " << std::hex << address << " caused " << response->misses << " miss(es)." << std::dec << endl;
+		// cout << "Operation at address " << std::hex << address << " caused " << response->misses << " miss(es)." << std::dec << endl;
 
-	cout << "-----------------------------------------" << endl;
+	// cout << "-----------------------------------------" << endl;
 	return;
 }

@@ -38,7 +38,7 @@ int main(int argc, char* argv[]) {
 	unsigned int numCacheLevels;
 
 	// read the configuration file
-	cout << "Reading config file: " << argv[1] << endl;
+	// cout << "Reading config file: " << argv[1] << endl;
 	ifstream infile(argv[1]);
 	unsigned int tmp;
 	infile >> numCacheLevels;
@@ -54,18 +54,18 @@ int main(int argc, char* argv[]) {
 	infile.close();
 	
 	// Examples of how you can access the configuration file information
-	cout << "System has " << numCacheLevels << " cache(s)." << endl;
-	cout << config.numberSets << " sets with " << config.blockSize << " bytes in each block. N = " << config.associativity << endl;
+	// cout << "System has " << numCacheLevels << " cache(s)." << endl;
+	// cout << config.numberSets << " sets with " << config.blockSize << " bytes in each block. N = " << config.associativity << endl;
 
-	if (config.rp == ReplacementPolicy::Random)
-		cout << "Using random replacement protocol" << endl;
-	else
-		cout << "Using LRU protocol" << endl;
+	// if (config.rp == ReplacementPolicy::Random)
+	// 	cout << "Using random replacement protocol" << endl;
+	// else
+	// 	cout << "Using LRU protocol" << endl;
 	
-	if (config.wp == WritePolicy::WriteThrough)
-		cout << "Using write-through policy" << endl;
-	else
-		cout << "Using write-back policy" << endl;
+	// if (config.wp == WritePolicy::WriteThrough)
+	// 	cout << "Using write-through policy" << endl;
+	// else
+	// 	cout << "Using write-back policy" << endl;
 
 	// start the cache operation...
 	string tracefile(argv[2]);
