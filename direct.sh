@@ -1,1 +1,0 @@
- ./bin/cache_sim ./resources/directconfig ./resources/openssltracefile_1_core0
